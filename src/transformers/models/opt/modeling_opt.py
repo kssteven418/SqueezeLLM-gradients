@@ -519,6 +519,26 @@ class OPTDecoder(OPTPreTrainedModel):
         self.gradient_checkpointing = False
         # Initialize weights and apply final processing
         self.post_init()
+        self.do_jump = False
+
+    def split(self, jumps=1):
+        self.embed_tokens.to(f"cuda:0")
+        self.embed_positions.to(f"cuda:0")
+        if self.final_layer_norm:
+            self.final_layer_norm.to(f"cuda:0")
+        self.jump_indices = []
+        prev_device = 0
+        nums = len(self.layers) // (jumps + 1)
+        for i, layer in enumerate(self.layers):
+            device = min(jumps, i // nums)
+            print(i, prev_device, device)
+            if prev_device != device:
+                self.jump_indices.append(i)
+            print(f"cuda:{device} for", i)
+            layer.to(f"cuda:{device}")
+            prev_device = device
+
+        self.do_jump = True
 
     def get_input_embeddings(self):
         return self.embed_tokens
@@ -665,10 +685,18 @@ class OPTDecoder(OPTPreTrainedModel):
                         f" {head_mask.size()[0]}."
                     )
 
+        device = 0
         for idx, decoder_layer in enumerate(self.layers):
             # add LayerDrop (see https://arxiv.org/abs/1909.11556 for description)
+            print(idx, device)
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
+
+            if self.do_jump and idx in self.jump_indices:
+                print("Jump!", idx)
+                device += 1
+                hidden_states = hidden_states.to(f"cuda:{device}")
+                attention_mask = attention_mask.to(f"cuda:{device}")
 
             dropout_probability = random.uniform(0, 1)
             if self.training and (dropout_probability < self.layerdrop):
@@ -703,6 +731,11 @@ class OPTDecoder(OPTPreTrainedModel):
                 )
 
             hidden_states = layer_outputs[0]
+
+            if self.do_jump and idx == len(self.layers) - 1:
+                print("hell back!", idx)
+                hidden_states = hidden_states.to("cuda:0")
+                attention_mask = attention_mask.to("cuda:0")
 
             if use_cache:
                 next_decoder_cache += (layer_outputs[2 if output_attentions else 1],)
@@ -741,6 +774,9 @@ class OPTModel(OPTPreTrainedModel):
         self.decoder = OPTDecoder(config)
         # Initialize weights and apply final processing
         self.post_init()
+
+    def split(self, jumps=1):
+        self.decoder.split(jumps=jumps)
 
     def get_input_embeddings(self):
         return self.decoder.embed_tokens
