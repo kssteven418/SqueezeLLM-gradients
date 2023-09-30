@@ -4,6 +4,14 @@
 ### Prerequisite
 You will need to have your own Huggingface-compatible LLaMA checkpoint saved at `[MODEL_PATH]`.
 
+Run the following command for setup:
+```
+conda create -n sqllm-grad python=3.9 -y
+conda activate sqllm-grad
+pip install -e .
+pip install -r requirements.txt
+```
+
 ### Command
 Run the following command:
 ```
@@ -23,3 +31,9 @@ To be specific, the model is partitioned into multiple chunks of consecutive lay
 
 You can also use the `--num_examples` argument to change the number of calibration examples. This defaults to 100.
 
+### Troubleshoot
+If you are getting the following error, please open `[MODEL_PATH]/tokenizer_config.json` and fix `"tokenizer_class": "LlamaTokenizer"` to `"tokenizer_class": "LLaMATokenizer"`.
+We are currently working on a proper fix for this.
+```
+ValueError: Tokenizer class LlamaTokenizer does not exist or is not currently imported.
+```
