@@ -1,5 +1,5 @@
 ## Gradient Computation for SqueezeLLM
-[SqueezeLLM](https://arxiv.org/pdf/2306.07629.pdf) utilizes the Fisher Information matrix as a sensitivity metric. This repository, which builds on top of Huggingface's transformer library, is designed to calculate the Fisher sensitivity score (gradient square). This score can be employed in the quantization pipeline of our official  [SqueezeLLM library](https://github.com/SqueezeAILab/SqueezeLLM)https://github.com/SqueezeAILab/SqueezeLLM.
+[SqueezeLLM](https://arxiv.org/pdf/2306.07629.pdf) utilizes the Fisher Information matrix as a sensitivity metric. This repository, which builds on top of Huggingface's transformer library, is designed to calculate the Fisher sensitivity score (gradient square). This score can be employed in the quantization pipeline of our official  [SqueezeLLM library](https://github.com/SqueezeAILab/SqueezeLLM).
 
 ### Prerequisite
 You will need to have your own Huggingface-compatible LLaMA checkpoint saved at `[MODEL_PATH]`.
