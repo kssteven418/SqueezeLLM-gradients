@@ -1702,8 +1702,8 @@ class Trainer:
             self.deepspeed = deepspeed_engine
             self.optimizer = optimizer
             self.lr_scheduler = lr_scheduler
-        elif not delay_optimizer_creation:
-            self.create_optimizer_and_scheduler(num_training_steps=max_steps)
+        #elif not delay_optimizer_creation:
+        #    self.create_optimizer_and_scheduler(num_training_steps=max_steps)
 
         self.state = TrainerState()
         self.state.is_hyper_param_search = trial is not None
@@ -1721,8 +1721,8 @@ class Trainer:
         if model is not self.model:
             self.model_wrapped = model
 
-        if delay_optimizer_creation:
-            self.create_optimizer_and_scheduler(num_training_steps=max_steps)
+        #if delay_optimizer_creation:
+        #    self.create_optimizer_and_scheduler(num_training_steps=max_steps)
 
         # Check if saved optimizer or scheduler states exist
         self._load_optimizer_and_scheduler(resume_from_checkpoint)
@@ -1784,7 +1784,7 @@ class Trainer:
 
         # Update the references
         self.callback_handler.model = self.model
-        self.callback_handler.optimizer = self.optimizer
+        #self.callback_handler.optimizer = self.optimizer
         self.callback_handler.lr_scheduler = self.lr_scheduler
         self.callback_handler.train_dataloader = train_dataloader
         if self.hp_name is not None and self._trial is not None:
@@ -1922,28 +1922,32 @@ class Trainer:
                         if self.do_grad_scaling:
                             # Reduce gradients first for XLA
                             if is_torch_tpu_available():
-                                gradients = xm._fetch_gradients(self.optimizer)
+                                #gradients = xm._fetch_gradients(self.optimizer)
                                 xm.all_reduce("sum", gradients, scale=1.0 / xm.xrt_world_size())
                             # AMP: gradients need unscaling
                             self.scaler.unscale_(self.optimizer)
 
                         if is_sagemaker_mp_enabled() and args.fp16:
-                            self.optimizer.clip_master_grads(args.max_grad_norm)
+                            #self.optimizer.clip_master_grads(args.max_grad_norm)
+                            pass
                         elif hasattr(self.optimizer, "clip_grad_norm"):
                             # Some optimizers (like the sharded optimizer) have a specific way to do gradient clipping
-                            self.optimizer.clip_grad_norm(args.max_grad_norm)
+                            #self.optimizer.clip_grad_norm(args.max_grad_norm)
+                            pass
                         elif hasattr(model, "clip_grad_norm_"):
                             # Some models (like FullyShardedDDP) have a specific way to do gradient clipping
                             model.clip_grad_norm_(args.max_grad_norm)
                         else:
                             # Revert to normal clipping otherwise, handling Apex or full precision
-                            nn.utils.clip_grad_norm_(
-                                amp.master_params(self.optimizer) if self.use_apex else model.parameters(),
-                                args.max_grad_norm,
-                            )
+                            #nn.utils.clip_grad_norm_(
+                            #    amp.master_params(self.optimizer) if self.use_apex else model.parameters(),
+                            #    args.max_grad_norm,
+                            #)
+                            pass
 
                     # Optimizer step
                     optimizer_was_run = True
+                    """
                     if self.deepspeed:
                         pass  # called outside the loop
                     elif is_torch_tpu_available():
@@ -1960,9 +1964,10 @@ class Trainer:
                         optimizer_was_run = scale_before <= scale_after
                     else:
                         self.optimizer.step()
+                    """
 
-                    if optimizer_was_run and not self.deepspeed:
-                        self.lr_scheduler.step()
+                    #if optimizer_was_run and not self.deepspeed:
+                    #    self.lr_scheduler.step()
 
                     model.zero_grad()
                     self.state.global_step += 1
@@ -2208,7 +2213,7 @@ class Trainer:
             tr_loss -= tr_loss
 
             logs["loss"] = round(tr_loss_scalar / (self.state.global_step - self._globalstep_last_logged), 4)
-            logs["learning_rate"] = self._get_learning_rate()
+            #logs["learning_rate"] = self._get_learning_rate()
 
             self._total_loss_scalar += tr_loss_scalar
             self._globalstep_last_logged = self.state.global_step
@@ -2216,22 +2221,23 @@ class Trainer:
 
             self.log(logs)
 
-        metrics = None
-        if self.control.should_evaluate:
-            if isinstance(self.eval_dataset, dict):
-                for eval_dataset_name, eval_dataset in self.eval_dataset.items():
-                    metrics = self.evaluate(
-                        eval_dataset=eval_dataset,
-                        ignore_keys=ignore_keys_for_eval,
-                        metric_key_prefix=f"eval_{eval_dataset_name}",
-                    )
-            else:
-                metrics = self.evaluate(ignore_keys=ignore_keys_for_eval)
-            self._report_to_hp_search(trial, self.state.global_step, metrics)
+        # Do not need to evaluate or save for computing fisher
+        #metrics = None
+        #if self.control.should_evaluate:
+        #    if isinstance(self.eval_dataset, dict):
+        #        for eval_dataset_name, eval_dataset in self.eval_dataset.items():
+        #            metrics = self.evaluate(
+        #                eval_dataset=eval_dataset,
+        #                ignore_keys=ignore_keys_for_eval,
+        #                metric_key_prefix=f"eval_{eval_dataset_name}",
+        #            )
+        #    else:
+        #        metrics = self.evaluate(ignore_keys=ignore_keys_for_eval)
+        #    self._report_to_hp_search(trial, self.state.global_step, metrics)
 
-        if self.control.should_save:
-            self._save_checkpoint(model, trial, metrics=metrics)
-            self.control = self.callback_handler.on_save(self.args, self.state, self.control)
+        #if self.control.should_save:
+        #    self._save_checkpoint(model, trial, metrics=metrics)
+        #    self.control = self.callback_handler.on_save(self.args, self.state, self.control)
 
     def _load_rng_state(self, checkpoint):
         # Load RNG states from `checkpoint`

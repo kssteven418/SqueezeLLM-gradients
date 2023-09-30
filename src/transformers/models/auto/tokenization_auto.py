@@ -362,6 +362,9 @@ def tokenizer_class_from_name(class_name: str):
     if class_name == "PreTrainedTokenizerFast":
         return PreTrainedTokenizerFast
 
+    if class_name == "LLaMATokenizer":
+        from transformers.models.llama.tokenization_llama import LLaMATokenizer
+        return LLaMATokenizer
     for module_name, tokenizers in TOKENIZER_MAPPING_NAMES.items():
         if class_name in tokenizers:
             module_name = model_type_to_module_name(module_name)
