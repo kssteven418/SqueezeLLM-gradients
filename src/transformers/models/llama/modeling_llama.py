@@ -45,7 +45,33 @@ from .configuration_llama import LLaMAConfig
 logger = logging.get_logger(__name__)
 
 _CHECKPOINT_FOR_DOC = "llama-7b"
+
+
 _CONFIG_FOR_DOC = "LLaMAConfig"
+
+class SquareGradientFunction(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input):
+        ctx.save_for_backward(input)
+        return input
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        grad_input = grad_output ** 2
+        return grad_input
+
+square_gradient = SquareGradientFunction.apply
+
+class SquareGradientLinear(nn.Linear):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        assert not self.bias, "SquareGradientLinear does not support bias"
+
+    def forward(self, input, do_square_gradient=True):
+        weight = self.weight
+        if do_square_gradient:
+            weight = square_gradient(weight)
+        return nn.functional.linear(input, weight, self.bias)
 
 
 def _make_causal_mask(input_ids_shape: torch.Size, dtype: torch.dtype, past_key_values_length: int = 0):
@@ -152,9 +178,9 @@ class LLaMAMLP(nn.Module):
         hidden_act: str,
     ):
         super().__init__()
-        self.gate_proj = nn.Linear(hidden_size, intermediate_size, bias=False)
-        self.down_proj = nn.Linear(intermediate_size, hidden_size, bias=False)
-        self.up_proj = nn.Linear(hidden_size, intermediate_size, bias=False)
+        self.gate_proj = SquareGradientLinear(hidden_size, intermediate_size, bias=False)
+        self.down_proj = SquareGradientLinear(intermediate_size, hidden_size, bias=False)
+        self.up_proj = SquareGradientLinear(hidden_size, intermediate_size, bias=False)
         self.act_fn = ACT2FN[hidden_act]
 
     def forward(self, x):
@@ -179,22 +205,22 @@ class LLaMAAttention(nn.Module):
                 f"hidden_size must be divisible by num_heads (got `hidden_size`: {self.hidden_size}"
                 f" and `num_heads`: {num_heads})."
             )
-        self.q_proj = nn.Linear(
+        self.q_proj = SquareGradientLinear(
             hidden_size,
             num_heads * self.head_dim,
             bias=False,
         )
-        self.k_proj = nn.Linear(
+        self.k_proj = SquareGradientLinear(
             hidden_size,
             num_heads * self.head_dim,
             bias=False,
         )
-        self.v_proj = nn.Linear(
+        self.v_proj = SquareGradientLinear(
             hidden_size,
             num_heads * self.head_dim,
             bias=False,
         )
-        self.o_proj = nn.Linear(
+        self.o_proj = SquareGradientLinear(
             num_heads * self.head_dim,
             hidden_size,
             bias=False,
