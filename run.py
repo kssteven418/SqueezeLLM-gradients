@@ -221,10 +221,6 @@ def train():
     _layers = _model.layers
     _model.set_devices()
 
-    optimizer = optim.SGD(model.parameters(), lr=0.01, momentum=0.9)
-    
-    grads = [[0.] * _model.num_linear_layers for _ in _layers]
-
     for i, data in tqdm(enumerate(dataloader[:data_args.num_examples])):
         data = data[0]
         x = data.cuda()
@@ -232,19 +228,12 @@ def train():
         loss = outputs.loss
         loss.backward()
 
-        for i, layer in enumerate(_layers):
-            for j, module in enumerate(get_modules(layer)):
-                grad = module.weight.grad
-                grads[i][j] += (grad ** 2).float().cpu()
-
-        optimizer.zero_grad()
-
     # This is a hacky solution to save the gradients
     # where we overwrite all the weights in the model as the gradients
     # and use HF save_pretrained`
     for i, layer in enumerate(_layers):
         for j, module in enumerate(get_modules(layer)):
-            module.weight.data = grads[i][j]
+            module.weight.data = module.weight.grad
 
     print(f"saving model gradient at {training_args.output_dir}")
     model.save_pretrained(training_args.output_dir)
