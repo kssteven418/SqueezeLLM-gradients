@@ -778,6 +778,33 @@ class MistralModel(MistralPreTrainedModel):
         # Initialize weights and apply final processing
         self.post_init()
 
+        self.num_linear_layers = 7  # q, k, v, o, gate, down, up
+
+    def set_devices(self):
+        num_visible_devices = torch.cuda.device_count()
+        assert num_visible_devices > 0, "Must use at least one GPU"
+        self.split_gpus = num_visible_devices > 1
+        print(f"splitting into {num_visible_devices} GPUs")
+        if not self.split_gpus:
+            self.cuda()
+        else:
+            # For larger model, we need to split the model into multiple GPUs
+            # assign the embedding and norm onto the 1st devide
+            self.embed_tokens.to(f"cuda:0")
+            self.norm.to(f"cuda:0")
+
+            # layers are divided into #(num GPUs) chunks
+            self.split_indices = []
+            prev_device = 0
+            nums = len(self.layers) // num_visible_devices
+            for i, layer in enumerate(self.layers):
+                device = min(num_visible_devices - 1, i // nums)
+                if prev_device != device:
+                    self.split_indices.append(i)
+                print(f"cuda:{device} for", i)
+                layer.to(f"cuda:{device}")
+                prev_device = device
+
     def get_input_embeddings(self):
         return self.embed_tokens
 
@@ -875,9 +902,16 @@ class MistralModel(MistralPreTrainedModel):
         all_self_attns = () if output_attentions else None
         next_decoder_cache = () if use_cache else None
 
+        device = 0
         for idx, decoder_layer in enumerate(self.layers):
             if output_hidden_states:
                 all_hidden_states += (hidden_states,)
+
+            # Move activations to the next device at the split points
+            if self.split_gpus and idx in self.split_indices:
+                device += 1
+                hidden_states = hidden_states.to(f"cuda:{device}")
+                attention_mask = attention_mask.to(f"cuda:{device}")
 
             past_key_value = past_key_values[idx] if past_key_values is not None else None
 
