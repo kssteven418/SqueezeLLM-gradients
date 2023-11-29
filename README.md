@@ -21,7 +21,7 @@ CUDA_VISIBLE_DEVICES=0,1 python run.py --output_dir [OUTPUT_PATH] --model_name [
 
 This command performs the following steps
 
-1. Loads the model from `[MODEL_PATH]`.
+1. Loads the model from `[MODEL_PATH]`. Currently, we support LLaMA and Mistral models. 
 2. Computes the gradient square using a subset of the C4 training dataset as a calibration set. You can define and use your own calibration dataset.
 3. Outputs the gradient square at `[OUTPUT_PATH]`. The output format will be identical to the loaded Huggingface model checkpoint, with the only difference being that the weight values are replaced by the gradient square.
 
@@ -30,10 +30,3 @@ This is automated by configuring multiple CUDA visible devices.
 To be specific, the model is partitioned into multiple chunks of consecutive layers, and each segment is assigned to an individual GPU device.
 
 You can also use the `--num_examples` argument to change the number of calibration examples. This defaults to 100.
-
-### Troubleshoot
-If you are getting the following error, please open `[MODEL_PATH]/tokenizer_config.json` and fix `"tokenizer_class": "LlamaTokenizer"` to `"tokenizer_class": "LLaMATokenizer"`.
-We are currently working on a proper fix for this.
-```
-ValueError: Tokenizer class LlamaTokenizer does not exist or is not currently imported.
-```
