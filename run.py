@@ -225,6 +225,7 @@ def train():
     def square_grad_hook(grad):
         return grad.pow(2)
 
+    # Register custom hook to accumulate the square of gradients instead
     for layer in _layers:
         for module in get_modules(layer):
             module.weight.register_hook(square_grad_hook)
@@ -245,7 +246,7 @@ def train():
 
     print(f"saving model gradient at {training_args.output_dir}")
     model.save_pretrained(training_args.output_dir)
-    
+
 
 if __name__ == "__main__":
     train()
